@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
+import 'package:flutter_typeahead/src/common/base/types.dart';
+import 'package:flutter_typeahead/src/common/box/suggestions_list.dart';
 
 typedef SelectionToTextTransformer<T> = String Function(T suggestion);
 
@@ -64,16 +66,17 @@ class FormBuilderTypeAhead<T> extends FormBuilderFieldDecoration<T> {
   ///   );
   /// }
   /// ```
-  final ItemBuilder<T> itemBuilder;
+  final SuggestionsItemBuilder<T> itemBuilder;
 
   /// The decoration of the material sheet that contains the suggestions.
   ///
-  /// If null, default decoration with an elevation of 4.0 is used
-  final SuggestionsBoxDecoration suggestionsBoxDecoration;
+  final DecorationBuilder? decorationBuilder;
+  // /// If null, default decoration with an elevation of 4.0 is used
+  // final SuggestionsBoxDecoration suggestionsBoxDecoration;
 
   /// Used to control the `_SuggestionsBox`. Allows manual control to
   /// open, close, toggle, or resize the `_SuggestionsBox`.
-  final SuggestionsBoxController? suggestionsBoxController;
+  final SuggestionsController<T>? suggestionsController;
 
   /// The duration to wait after the user stops typing before calling
   /// [suggestionsCallback]
@@ -109,7 +112,7 @@ class FormBuilderTypeAhead<T> extends FormBuilderFieldDecoration<T> {
   /// ```
   ///
   /// If not specified, a simple text is shown
-  final WidgetBuilder? noItemsFoundBuilder;
+  final WidgetBuilder? emptyBuilder;
 
   /// Called when [suggestionsCallback] throws an exception.
   ///
@@ -123,7 +126,7 @@ class FormBuilderTypeAhead<T> extends FormBuilderFieldDecoration<T> {
   /// ```
   ///
   /// If not specified, the error is shown in [ThemeData.errorColor](https://docs.flutter.io/flutter/material/ThemeData/errorColor.html)
-  final ErrorBuilder? errorBuilder;
+  final SuggestionsErrorBuilder? errorBuilder;
 
   /// Called to display animations when [suggestionsCallback] returns suggestions
   ///
@@ -168,24 +171,24 @@ class FormBuilderTypeAhead<T> extends FormBuilderFieldDecoration<T> {
   /// and the [_SuggestionsList] will grow **up**.
   ///
   /// [AxisDirection.left] and [AxisDirection.right] are not allowed.
-  final AxisDirection direction;
+  final VerticalDirection direction;
 
-  /// The value at which the [transitionBuilder] animation starts.
-  ///
-  /// This argument is best used with [transitionBuilder] and [animationDuration]
-  /// to fully control the animation.
-  ///
-  /// Defaults to 0.25.
-  final double animationStart;
+  // /// The value at which the [transitionBuilder] animation starts.
+  // ///
+  // /// This argument is best used with [transitionBuilder] and [animationDuration]
+  // /// to fully control the animation.
+  // ///
+  // /// Defaults to 0.25.
+  // final double animationStart;
 
-  /// The configuration of the [TextField](https://docs.flutter.io/flutter/material/TextField-class.html)
-  /// that the TypeAhead widget displays
-  final TextFieldConfiguration textFieldConfiguration;
+  // /// The configuration of the [TextField](https://docs.flutter.io/flutter/material/TextField-class.html)
+  // /// that the TypeAhead widget displays
+  // final TextFieldConfiguration textFieldConfiguration;
 
   /// How far below the text field should the suggestions box be
   ///
   /// Defaults to 5.0
-  final double suggestionsBoxVerticalOffset;
+  final Offset offset;
 
   /// If set to true, suggestions will be fetched immediately when the field is
   /// added to the view.
@@ -194,8 +197,8 @@ class FormBuilderTypeAhead<T> extends FormBuilderFieldDecoration<T> {
   /// To make the field receive focus immediately, you can set the `autofocus`
   /// property in the [textFieldConfiguration] to true
   ///
-  /// Defaults to false
-  final bool getImmediateSuggestions;
+  // /// Defaults to false
+  // final bool getImmediateSuggestions;
 
   /// If set to true, no loading box will be shown while suggestions are
   /// being fetched. [loadingBuilder] will also be ignored.
@@ -204,7 +207,7 @@ class FormBuilderTypeAhead<T> extends FormBuilderFieldDecoration<T> {
   final bool hideOnLoading;
 
   /// If set to true, nothing will be shown if there are no results.
-  /// [noItemsFoundBuilder] will also be ignored.
+  /// [emptyBuilder] will also be ignored.
   ///
   /// Defaults to false.
   final bool hideOnEmpty;
@@ -219,13 +222,13 @@ class FormBuilderTypeAhead<T> extends FormBuilderFieldDecoration<T> {
   /// the keyboard is closed.
   ///
   /// Defaults to true.
-  final bool hideSuggestionsOnKeyboardHide;
+  final bool hideWithKeyboard;
 
   /// If set to false, the suggestions box will show a circular
   /// progress indicator when retrieving suggestions.
   ///
   /// Defaults to true.
-  final bool keepSuggestionsOnLoading;
+  final bool retainOnLoading;
 
   /// If set to true, the suggestions box will remain opened even after
   /// selecting a suggestion.
@@ -238,7 +241,7 @@ class FormBuilderTypeAhead<T> extends FormBuilderFieldDecoration<T> {
   /// box without a manual way via `SuggestionsBoxController`.
   ///
   /// Defaults to false.
-  final bool keepSuggestionsOnSuggestionSelected;
+  final bool hideOnSelect;
 
   /// If set to true, in the case where the suggestions box has less than
   /// _SuggestionsBoxController.minOverlaySpace to grow in the desired [direction], the direction axis
@@ -265,11 +268,13 @@ class FormBuilderTypeAhead<T> extends FormBuilderFieldDecoration<T> {
   /// the `itemBuilder` to construct each element of the list.  Specify
   /// your own `layoutArchitecture` if you want to be responsible
   /// for layinng out the widgets using some other system (like a grid).
-  final LayoutArchitecture? layoutArchitecture;
+  final ListBuilder? listBuilder;
 
-  /// Used to overcome [Flutter issue 98507](https://github.com/flutter/flutter/issues/98507)
-  /// Most commonly experienced when placing the [TypeAheadFormField] on a google map in Flutter Web.
-  final bool intercepting;
+  final TextFieldBuilder? textFieldBuilder;
+
+  // /// Used to overcome [Flutter issue 98507](https://github.com/flutter/flutter/issues/98507)
+  // /// Most commonly experienced when placing the [TypeAheadFormField] on a google map in Flutter Web.
+  // final bool intercepting;
 
   /// If set to false, suggestion list will not be reversed according to the
   /// [autoFlipDirection] property.
@@ -285,8 +290,8 @@ class FormBuilderTypeAhead<T> extends FormBuilderFieldDecoration<T> {
   /// The minimum number of characters which must be entered before
   /// [suggestionsCallback] is triggered.
   ///
-  /// Defaults to 0.
-  final int minCharsForSuggestions;
+  // /// Defaults to 0.
+  // final int minCharsForSuggestions;
 
   /// If set to true and if the user scrolls through the suggestion list, hide the keyboard automatically.
   /// If set to false, the keyboard remains visible.
@@ -299,11 +304,11 @@ class FormBuilderTypeAhead<T> extends FormBuilderFieldDecoration<T> {
   /// Allows a bypass of a problem on Flutter 3.7+ with the accessibility through Overlay
   /// that prevents flutter_typeahead to register a click on the list of suggestions properly.
   ///
-  /// Defaults to false
-  final bool ignoreAccessibleNavigation;
+  // /// Defaults to false
+  // final bool ignoreAccessibleNavigation;
 
-  // Adds a callback for the suggestion box opening or closing
-  final void Function(bool)? onSuggestionsBoxToggle;
+  // // Adds a callback for the suggestion box opening or closing
+  // final void Function(bool)? onSuggestionsBoxToggle;
 
   /// Creates text field that auto-completes user input from a list of items
   FormBuilderTypeAhead({
@@ -322,95 +327,105 @@ class FormBuilderTypeAhead<T> extends FormBuilderFieldDecoration<T> {
     required this.itemBuilder,
     required this.suggestionsCallback,
     this.animationDuration = const Duration(milliseconds: 500),
-    this.animationStart = 0.25,
+    // this.animationStart = 0.25,
     this.autoFlipDirection = false,
     this.controller,
     this.debounceDuration = const Duration(milliseconds: 300),
-    this.direction = AxisDirection.down,
+    this.direction = VerticalDirection.down,
     this.errorBuilder,
-    this.getImmediateSuggestions = false,
+    // this.getImmediateSuggestions = false,
     this.hideKeyboard = false,
     this.hideOnEmpty = false,
     this.hideOnError = false,
     this.hideOnLoading = false,
-    this.hideSuggestionsOnKeyboardHide = true,
-    this.keepSuggestionsOnLoading = true,
-    this.keepSuggestionsOnSuggestionSelected = false,
+    this.hideWithKeyboard = true,
+    this.retainOnLoading = true,
+    this.hideOnSelect = false,
     this.loadingBuilder,
-    this.noItemsFoundBuilder,
+    this.emptyBuilder,
     this.onSuggestionSelected,
     this.scrollController,
     this.selectionToTextTransformer,
-    this.suggestionsBoxController,
-    this.suggestionsBoxDecoration = const SuggestionsBoxDecoration(),
-    this.suggestionsBoxVerticalOffset = 5.0,
-    this.textFieldConfiguration = const TextFieldConfiguration(),
+    this.suggestionsController,
+    // this.suggestionsBoxDecoration = const SuggestionsBoxDecoration(),
+    this.decorationBuilder,
+    this.offset = const Offset(0, 5),
+    // this.textFieldConfiguration = const TextFieldConfiguration(),
+    this.textFieldBuilder,
     this.transitionBuilder,
     this.autoFlipListDirection = true,
     this.autoFlipMinHeight = 64.0,
     this.hideKeyboardOnDrag = false,
-    this.ignoreAccessibleNavigation = false,
-    this.intercepting = false,
+    // this.ignoreAccessibleNavigation = false,
+    // this.intercepting = false,
     this.itemSeparatorBuilder,
-    this.layoutArchitecture,
-    this.minCharsForSuggestions = 0,
-    this.onSuggestionsBoxToggle,
+    this.listBuilder,
+    // this.minCharsForSuggestions = 0,
+    // this.onSuggestionsBoxToggle,
   })  : assert(T == String || selectionToTextTransformer != null),
         super(
           builder: (FormFieldState<T?> field) {
             final state = field as FormBuilderTypeAheadState<T>;
             final theme = Theme.of(state.context);
-
             return TypeAheadField<T>(
-              textFieldConfiguration: textFieldConfiguration.copyWith(
-                enabled: state.enabled,
-                controller: state._typeAheadController,
-                style: state.enabled
-                    ? textFieldConfiguration.style
-                    : theme.textTheme.titleMedium!.copyWith(
-                        color: theme.disabledColor,
-                      ),
-                focusNode: state.effectiveFocusNode,
-                decoration: state.decoration,
-              ),
-              autoFlipListDirection: autoFlipListDirection,
+              controller: state._typeAheadController,
+              focusNode: state.effectiveFocusNode,
+              decorationBuilder: decorationBuilder,
+              builder: textFieldBuilder ??
+                  (context, controller, focusNode) {
+                    final enabled = state.enabled;
+                    return TextField(
+                      enabled: enabled,
+                      controller: controller,
+                      focusNode: focusNode,
+                      decoration: state.decoration,
+                      // TODO: Rember to dot it bro
+                      style: enabled
+                          ? null
+                          : theme.textTheme.titleMedium!
+                              .copyWith(color: theme.disabledColor),
+                    );
+                  },
+              // autoFlipListDirection: autoFlipListDirection,
               autoFlipMinHeight: autoFlipMinHeight,
               hideKeyboardOnDrag: hideKeyboardOnDrag,
-              ignoreAccessibleNavigation: ignoreAccessibleNavigation,
-              intercepting: intercepting,
+              // ignoreAccessibleNavigation: ignoreAccessibleNavigation,
+              // intercepting: intercepting,
               itemSeparatorBuilder: itemSeparatorBuilder,
-              layoutArchitecture: layoutArchitecture,
-              minCharsForSuggestions: minCharsForSuggestions,
-              onSuggestionsBoxToggle: onSuggestionsBoxToggle,
+              // layoutArchitecture: layoutArchitecture,
+              listBuilder: listBuilder,
+              // minCharsForSuggestions: minCharsForSuggestions,
+              // onSuggestionsBoxToggle: onSuggestionsBoxToggle,
               // TODO HACK to satisfy strictness
               suggestionsCallback: suggestionsCallback,
               itemBuilder: itemBuilder,
-              transitionBuilder: (context, suggestionsBox, controller) =>
-                  suggestionsBox,
-              onSuggestionSelected: (T suggestion) {
+              transitionBuilder: transitionBuilder,
+              onSelected: (T suggestion) {
                 state.didChange(suggestion);
                 onSuggestionSelected?.call(suggestion);
               },
-              getImmediateSuggestions: getImmediateSuggestions,
+
+              // getImmediateSuggestions: getImmediateSuggestions,
               errorBuilder: errorBuilder,
-              noItemsFoundBuilder: noItemsFoundBuilder,
+              emptyBuilder: emptyBuilder,
               loadingBuilder: loadingBuilder,
               debounceDuration: debounceDuration,
-              suggestionsBoxDecoration: suggestionsBoxDecoration,
-              suggestionsBoxVerticalOffset: suggestionsBoxVerticalOffset,
+              // suggestionsBoxDecoration: suggestionsBoxDecoration,
+              // suggestionsBoxVerticalOffset: suggestionsBoxVerticalOffset,
+              offset: offset,
               animationDuration: animationDuration,
-              animationStart: animationStart,
+              // animationStart: animationStart,
               direction: direction,
               hideOnLoading: hideOnLoading,
               hideOnEmpty: hideOnEmpty,
               hideOnError: hideOnError,
-              hideSuggestionsOnKeyboardHide: hideSuggestionsOnKeyboardHide,
-              keepSuggestionsOnLoading: keepSuggestionsOnLoading,
+              hideWithKeyboard: hideWithKeyboard,
+              retainOnLoading: retainOnLoading,
               autoFlipDirection: autoFlipDirection,
-              suggestionsBoxController: suggestionsBoxController,
-              keepSuggestionsOnSuggestionSelected:
-                  keepSuggestionsOnSuggestionSelected,
-              hideKeyboard: hideKeyboard,
+              suggestionsController: suggestionsController,
+              hideOnSelect: hideOnSelect,
+              // TODO: figure out what is this
+              // hideKeyboard: hideKeyboard,
               scrollController: scrollController,
             );
           },
